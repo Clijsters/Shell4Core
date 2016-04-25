@@ -2,7 +2,8 @@ $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 $Assemblies = @(
 'System.Windows.Forms',
 'System.Data',
-'System.Drawing'
+'System.Drawing',
+'System.Linq'
 )
 
 #2nd param - Assemblies. centralized it because unloading isn't possible
