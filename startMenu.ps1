@@ -2,19 +2,37 @@
 
 Function startMenu([System.Windows.Forms.Form]$appBar)
 {
-    [System.Windows.Forms.Form]$menuForm = New-Object System.Windows.Forms.Form
+	#This is needed for calculating Control.Sizes
+	[int]$myWidth = 464
+	[int]$myHeight = 486
+	[int]$btnMargin = 12
+	[int]$btnHeight = 30
+	
+	#Predefined Slot algorithm for perfect placements of startMenuItems
+	Function Slot([Int]$intSlot)
+	{
+		If ($intSlot -gt 0)
+		{
+			return ($btnMargin + ($intSlot * ($btnHeight + $btnMargin)))
+		} Else 
+		{
+			return $btnMargin
+		}
+	}
+	
+    [System.Windows.Forms.Form]$menuForm = New-Object System.Windows.Forms.Form -Property @{
+		visible = $False
+		AutoScaleDimensions = New-Object System.Drawing.SizeF(6.0, 13.0)
+		AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
+		BackColor = [System.Drawing.SystemColors]::ControlDark
+		ClientSize = New-Object System.Drawing.Size($myWidth, $myHeight)
+		ShowInTaskbar = $False
+		FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+		Name = "StartMenu"
+		StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+	}
+	
 	$menuForm.SuspendLayout()
-	$menuForm.visible = $False
-	$menuForm.AutoScaleDimensions = New-Object System.Drawing.SizeF(6.0, 13.0)
-	$menuForm.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
-	$menuForm.BackColor = [System.Drawing.SystemColors]::ControlDark
-	$menuForm.ClientSize = New-Object System.Drawing.Size(464, 483)
-	$menuForm.ShowInTaskbar = $False
-	$menuForm.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
-	$menuForm.Name = "StartMenu"
-	$menuForm.Text = $menuForm.Name
-	$menuForm.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
-	    
     switch ($appBar.ABE)
 	{
         ABE_LEFT
@@ -30,8 +48,6 @@ Function startMenu([System.Windows.Forms.Form]$appBar)
         ABE_RIGHT
 		{
             #2
-            #$menuForm.left = $appBar.left
-            #$menuForm.bottom = $appBar.Top
         }
         ABE_BOTTOM
 		{
@@ -42,46 +58,69 @@ Function startMenu([System.Windows.Forms.Form]$appBar)
         default {Write-Host "This should never ever happen."}
     }
 	
-	$sc = New-Object System.Windows.Forms.SplitContainer
-	$btnCmd = New-Object System.Windows.Forms.Button
-	$btnComputer = New-Object System.Windows.Forms.Button
-	$btnShutdown = New-Object System.Windows.Forms.Button
-	#$sc.beginInit()
-	$sc.Dock = [System.Windows.Forms.DockStyle]::Fill
-	$sc.Location = New-Object System.Drawing.Point(0, 0)
-	$sc.Size = New-Object System.Drawing.Size(464, 483)
-	$sc.SplitterDistance = 223
-	$sc.BorderStyle = [System.Windows.Forms.BorderStyle]::Fixed3D
-	$sc.TabIndex = 0
+	$sc = New-Object System.Windows.Forms.SplitContainer -Property @{
+		TabIndex = 0
+		Dock = [System.Windows.Forms.DockStyle]::Fill
+		Location = New-Object System.Drawing.Point(0, 0)
+		Size = $menuForm.Size
+		SplitterDistance = $myWidth * 0.45
+		BorderStyle = [System.Windows.Forms.BorderStyle]::Fixed3D
+	}
 	
-	$sc.Panel1.Controls.Add($btnCmd)
-	$sc.Panel1.Controls.Add($btnComputer)
+	#If this goes bigger: http://powershell.org/wp/2013/01/23/join-powershell-hash-tables/
+	[hashtable]$btnProto=@{
+		Size = New-Object System.Drawing.Size(($sc.SplitterDistance - 2 * $btnMargin), $btnHeight)
+		UseVisualStyleBackColor = $True
+	}
+	$btnComputer = New-Object System.Windows.Forms.Button -Property ($btnProto+@{
+		Name = "btnComputer"
+		Text = "Computer"
+		TabIndex = 0
+		Location = New-Object System.Drawing.Point($btnMargin, (Slot(0)))
+	})
+	
+	$btnCmd = New-Object System.Windows.Forms.Button -Property ($btnProto+@{
+		Name = "btnCmd"
+		Text = "CommandPrompt"
+		TabIndex = 1
+		Location = New-Object System.Drawing.Point($btnMargin, (Slot(1)))
+	})
+	
+	$btndrei = New-Object System.Windows.Forms.Button -Property ($btnProto+@{
+		Name = "btndrei"
+		Text = "TestKnopf"
+		TabIndex = 2
+		Location = New-Object System.Drawing.Point($btnMargin, (Slot(2)))
+	})
+	
+	$btnShutdown = New-Object System.Windows.Forms.Button -Property ($btnProto+@{
+		Name = "btnShutdown"
+		Text = "Shutdown"
+		TabIndex = 0
+		Location = New-Object System.Drawing.Point($btnMargin, 431)
+	})
+	
+	$btnCmd.Add_Click(
+		{
+			Start-Process "CMD"
+			#Attention:
+			$startM.Hide()
+		}
+	)
+	$btndrei.Add_Click({Start-Process "explorer"})
+	
+	#$sc.beginInit()
+	$sc.Panel1.Controls.AddRange(@(
+		$btnComputer,
+		$btnCmd,
+		$btndrei
+	))
+	
 	$sc.Panel2.Controls.Add($btnShutdown)
 	$sc.Panel2.BackColor = [System.Drawing.SystemColors]::ControlDark
-
-	$btnComputer.Location = New-Object System.Drawing.Point(12, 12)
-	$btnComputer.Name = "btnComputer"
-	$btnComputer.Size = New-Object System.Drawing.Size(208, 40)
-	$btnComputer.TabIndex = 0
-	$btnComputer.Text = "Computer"
-	$btnComputer.UseVisualStyleBackColor = $True
-
-	$btnShutdown.Location = New-Object System.Drawing.Point(49, 431)
-	$btnShutdown.Name = "btnShutdown"
-	$btnShutdown.Size = New-Object System.Drawing.Size(176, 40)
-	$btnShutdown.TabIndex = 1
-	$btnShutdown.Text = "Shutdown"
-	$btnShutdown.UseVisualStyleBackColor = $True
-	
-	$btnCmd.Location = New-Object System.Drawing.Point(12, 58)
-	$btnCmd.Name = "btnCmd"
-	$btnCmd.Size = New-Object System.Drawing.Size(208, 40)
-	$btnCmd.TabIndex = 1
-	$btnCmd.Text = "CommandPrompt"
-	$btnCmd.UseVisualStyleBackColor = $True
+	#$sc.EndInit()
 	
 	$menuForm.Controls.Add($sc)
-	#$sc.EndInit()
 	$menuForm.ResumeLayout($False)
 	
 	Return $menuForm
