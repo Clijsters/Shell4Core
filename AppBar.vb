@@ -55,7 +55,7 @@ Public Class AppBar
     Private Sub InitializeComponent()
         console.writeline("InitializeComponent")
         Me.SuspendLayout()
-        'Thread.CurrentThread.SetApartmentState(ApartmentState.STA)
+
         Me.Panel1 = New System.Windows.Forms.Panel()
         Me.Panel1.Anchor = CType((((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Bottom) _
             Or System.Windows.Forms.AnchorStyles.Left) _
@@ -86,7 +86,6 @@ Public Class AppBar
 
         Me.ResumeLayout(False)
         Me.PerformLayout()
-        Me.Visible = True
     End Sub
 #End Region
 
@@ -198,7 +197,7 @@ Public Class AppBar
         End If
     End Function
 
-    Private Sub RegisterBar()
+    Public Sub RegisterBar()
         Dim abd As New APPBARDATA()
         abd.cbSize = Marshal.SizeOf(abd)
         abd.hWnd = Me.Handle
@@ -282,30 +281,7 @@ Public Class AppBar
         MyBase.WndProc(m)
     End Sub
 
-    <STAThread()> _
-    Private Sub Form1_Load(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles MyBase.Load
-        Me.StartPosition = FormStartPosition.Manual
-        Console.writeline("Loading AppBar...")
-        RegisterBar()
-        Try
-            Dim myTime As New System.Windows.Forms.Timer
-            AddHandler myTime.Tick, AddressOf ticked
-            myTime.Interval = enumWinTimer
-            myTime.Enabled = True
-            Console.WriteLine("Enumerating visible Windows every " & enumWinTimer & "ms.")
-        Catch ex As Exception
-            console.error.WriteLine("Couldn't set timer:" & vbCrLf & ex.Message)
-            Application.Exit()
-        End Try
-    End Sub
-
     Public Sub ticked(sender As Object, e As system.eventargs)
-        Me.TimeLabel.Text = System.DateTime.Now.ToString("HH:mm")
-
-        'For Each btn As System.Windows.Forms.Button In Me.Panel1.Controls
-        '        RemoveHandler btn.Click, AddressOf AppBarIcon_Click
-        'Next
-
         Me.OpenWindows.Clear()
         intLeft = 0
         Me.Panel1.SuspendLayout()
@@ -324,6 +300,7 @@ Public Class AppBar
         Me.Panel1.ResumeLayout(False)
     End Sub
 
+
     ''' <summary>Is called by EnumWindows(). Adds new AppBarIcon based on hWnd</summary>
     ''' <param name="hWnd">Handle to Window found.</param>
     ''' <param name="lParam">Not in use</param>
@@ -337,7 +314,6 @@ Public Class AppBar
                     Dim newBtn As New AppBarIcon(hwnd)
                     newBtn.text = strTitle
                     Me.openWindows.Add(newBtn)
-                    'AddHandler newBtn.Click, AddressOf AppBarIcon_Click
                 End If
             End If
             Return True
@@ -345,17 +321,6 @@ Public Class AppBar
             Return False
         End Try
     End Function
-
-    Sub AppBarIcon_Click(sender As System.Object, e As System.EventArgs)
-        'Moved this to AppBarIcon itself
-        'Dim btn As AppBarIcon = CType(sender, AppBarIcon)
-        'btn.SwitchState()
-    End Sub
-
-    Private Sub ShowMenu(sender As System.Object, e As System.EventArgs) Handles startButton.Click
-        'This event is now handled by PS-Script itself.
-        'Debug.WriteLine("Start")
-    End Sub
 
 End Class
 
@@ -415,7 +380,6 @@ Class AppBarIcon
     Sub ArrangeMe(ByRef intLeft)
         Me.Left = intLeft
         intLeft += Me.Width + 5
-        console.writeline("finito")
     End Sub
 
     Sub switchState()

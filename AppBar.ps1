@@ -25,6 +25,26 @@ $Bar.startButton.Add_Click(
     }
 )
 
+[System.Windows.Forms.Timer]$myTime = New-Object System.Windows.Forms.Timer -Property @{
+	Interval = 2000
+	Enabled = $True
+}
+$myTime.Add_Tick(
+	{
+		$Bar.ticked($sender, $eventArgs)
+		$Bar.TimeLabel.Text = [System.DateTime]::Now.ToString("HH:mm")
+	})
+#Solve the pipeline issue on close
+$myTime.Interval = 2000
+$myTime.Enabled = $True
+
+$Bar.Add_Load(
+	{
+		$Bar.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+		write-host "Loading AppBar.."
+		$Bar.RegisterBar()
+	})
+
 [System.Windows.Forms.Application]::Run(($Bar))
 
 #Later...
