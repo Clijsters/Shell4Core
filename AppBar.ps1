@@ -1,13 +1,58 @@
 #First implementation of AppBar Class. <=Testing purpose
+#[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") 
+
 cls
 $scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
 cd $scriptPath
 
 . '.\General.ps1'
+. '.\startMenu.ps1'
 
 #TODO: Split AppBar and AppBarIcon in two assemblies on disk, referencing each other
 #TODO2:Put Region Designer to PowerShell.
 AddAssembly "AppBar"
+
+[int]$intLeft = 0
+[System.Collections.Generic.List[Shell4Core.AppBarIcon]]$ArrBtns = New-Object System.Collections.Generic.List[Shell4Core.AppBarIcon]
+[System.Collections.Generic.List[Shell4Core.AppBarIcon]]$ArrRef  = New-Object System.Collections.Generic.List[Shell4Core.AppBarIcon]
+
+Function RefreshOpenWindows($ArrRef){
+	$ArrBtns.Clear()
+	
+	[Shell4Core.AppBar]::EnumWindows({
+		Param($hWnd,$b)
+		$Builder = New-Object System.Text.StringBuilder("", 256)
+		If ([Shell4Core.AppBar]::IsWindowVisible($hWnd)) {
+			[Shell4Core.AppBar]::GetWindowText($hWnd, $Builder, 256)
+			$str = $Builder.ToString()
+			If (($str -ne "") -And ($Str -ne "Start")) {
+				$d = New-Object Shell4Core.AppBarIcon $hWnd
+				$d.Text = $str
+				$ArrBtns.Add($d)|Out-Null
+			}
+		}
+		Return $True
+	}, 0)
+	
+	#TODO: Find a better solution
+	$oldMap = [Array]($ArrRef|Foreach-Object {$_.IsRestored})
+	$newMap = [Array]($ArrBtns|Foreach-Object {$_.IsRestored})
+	
+	if ((diff $ArrRef $ArrBtns) -Or (diff $oldMap $newMap)){
+		Write-Host "Something has changed. Let's refresh our OpenWindows-List"
+		ForEach($btn in ($ArrBtns | Sort-Object -Property PtrhWnd)) {
+			$btn.ArrangeMe([ref]$intLeft)
+		}
+		$OpenWindows.SuspendLayout()
+		$OpenWindows.Controls.Clear()
+		$OpenWindows.Controls.AddRange($ArrBtns)
+		$OpenWindows.ResumeLayout($False)
+		$ArrRef.Clear()
+		#TODO: Find a better way to sync them. It seems that = doesn't work...
+		ForEach($btn in $ArrBtns){$ArrRef.Add($btn)}
+	}
+	Return $ArrRef
+}
 
 [Shell4Core.AppBar]$Bar = New-Object Shell4Core.AppBar("ABE_TOP", 0) -Property @{
 	ClientSize = New-Object System.Drawing.Size(1940, 70)
@@ -25,73 +70,61 @@ AddAssembly "AppBar"
 }
 
 [System.Windows.Forms.Panel]$OpenWindows = New-Object System.Windows.Forms.Panel -Property @{
-	Anchor = 15 #All Edges
+	Anchor = ([int][System.Windows.Forms.AnchorStyles]::Top) + ([int][System.Windows.Forms.AnchorStyles]::Right) + ([int][System.Windows.Forms.AnchorStyles]::Left) + ([int][System.Windows.Forms.AnchorStyles]::Bottom) #15 = All Edges
 	Location = New-Object System.Drawing.Point(70, 10)
 	Name = "RunningApps"
 	Size = New-Object System.Drawing.Size(834, 50)
 }
 
-#TODO: Create DateLabel, group them in panel, center them.
 [System.Windows.Forms.Label]$TimeLabel = New-Object System.Windows.Forms.Label -Property @{
 	Text = [System.DateTime]::Now.ToString("HH:mm") + "
 	" + [System.DateTime]::Today.ToString("dd.MM.yyyy")
 	Size = New-Object System.Drawing.Size(95, 50)
 	Location = New-Object System.Drawing.Point(($Bar.width - 105), 10)
-	Anchor = 9 #Top Right
+	Anchor = ([int][System.Windows.Forms.AnchorStyles]::Top) + ([int][System.Windows.Forms.AnchorStyles]::Right) #9 = Top Right
 	Font = New-Object System.Drawing.Font("Microsoft Sans Serif", 11.25, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Point, [Byte]0)
 	TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
 }
 
-$Bar.SuspendLayout()
-$Bar.Controls.AddRange(($StartButton, $OpenWindows, $TimeLabel))
-$Bar.ResumeLayout($False)
-$Bar.PerformLayout()
-
-. '.\startMenu.ps1'
-[System.Windows.Forms.Form]$startM = startMenu($Bar)
-
-$StartButton.Add_Click(
-    {
-        If (-not ($startM.Visible)) {
-            $startM.Show()
-        }
-        else {
-            $startM.Hide()
-        }
-    }
-)
-
 [System.Windows.Forms.Timer]$myTime = New-Object System.Windows.Forms.Timer -Property @{
-	Interval = 2000
+	Interval = 850
 	Enabled = $True
 }
+
+[System.Windows.Forms.Form]$startM = startMenu([ref]$Bar)
+$StartButton.Add_Click(
+	{
+		If (-not ($startM.Visible)) {
+			$startM.Show()
+		}
+		else {
+			$startM.Hide()
+		}
+	}
+)
+
+$Bar.Add_Load({$Bar.RegisterBar()})
+
 $myTime.Add_Tick(
 	{
 		#$Bar.ticked($sender, $eventArgs)
 		$TimeLabel.Text = [System.DateTime]::Now.ToString("HH:mm") + "
 	" + [System.DateTime]::Today.ToString("dd.MM.yyyy")
 		$intLeft = 0
-		$OpenWindows.SuspendLayout()
-		$OpenWindows.Controls.Clear()
-		
-		
-		foreach($Win in (Get-Process | where-object {$_.MainWindowHandle -ne 0 -And $_.MainWindowTitle -ne ""} | Select-Object mainWindowTitle, mainwindowhandle | Sort-Object -Property MainWindowHandle))
-		{
-			#Write-Host ($Bar.EnumCallBack($Win.MainWindowHandle, $Win.MainWindowTitle))
-			$d = New-Object Shell4Core.AppBarIcon $Win.MainWindowHandle
-			$d.Text = $Win.MainWindowTitle
-			$d.ArrangeMe([ref]$intLeft)
-			$OpenWindows.Controls.Add($d)
-		}
-		$OpenWindows.ResumeLayout()
+		$ArrRef = RefreshOpenWindows($ArrRef)
 	})
-
-
-$Bar.Add_Load(
+	
+$startM.Add_Load(
 	{
-		write-host "Loading AppBar.."
-		$Bar.RegisterBar()
-	})
+		$startM.Top = $Bar.Bottom
+		$StartM.Left = $Bar.Left
+	}
+)
+
+$Bar.SuspendLayout()
+$Bar.Controls.AddRange(($StartButton, $OpenWindows, $TimeLabel))
+$Bar.ResumeLayout($False)
+$Bar.PerformLayout()
 
 [System.Windows.Forms.Application]::Run(($Bar))
 

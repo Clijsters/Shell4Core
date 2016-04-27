@@ -34,7 +34,7 @@ Function startMenu([System.Windows.Forms.Form]$appBar)
 	}
 	
 	$menuForm.SuspendLayout()
-	switch ($appBar.ABE)
+	switch ($appBar.ABD.uEdge)
 	{
 		ABE_LEFT
 		{
