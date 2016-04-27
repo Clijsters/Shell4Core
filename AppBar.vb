@@ -20,7 +20,9 @@ Namespace Shell4Core
     Public Class AppBar
         Inherits System.Windows.Forms.Form
 
-        Public ABE As ABEdge
+        Public ABD As AppBarData
+
+
         Private uCallBack As Integer
         Private BarIsDocked As Boolean = False
         Private ScreenToDock As Integer
@@ -36,11 +38,11 @@ Namespace Shell4Core
         End Property
 
         ''' <summary>Creates a new AppBar Instance.</summary>
-        ''' <param name="Edge">AppBar.ABEdge: Defines the Edge to dock on</param>
-        ''' <param name="Screen">Integer: The Screen to appear on. (Default is 0</param>
+        ''' <param name="Edge">AppBar.ABEdge: Defines the Edge to dock on.</param>
+        ''' <param name="Screen">Integer: The Screen to appear on. (Default is 0)</param>
         Public Sub New(ByVal Edge As ABEdge, Optional ByVal Screen As Integer = 0)
             'TODO: Use whole AppBarData instead of just ABE
-            Me.ABE = Edge
+            Me.ABD.uEdge = Edge
             Me.ScreenToDock = Screen
         End Sub
 
@@ -56,10 +58,17 @@ Namespace Shell4Core
             Public cbSize As Integer
             Public hWnd As IntPtr
             Public uCallbackMessage As Integer
-            Public uEdge As Integer
+            Public uEdge As ABEdge
             Public rc As RECT
             Public lParam As IntPtr
         End Structure
+
+        Enum ABEdge
+            ABE_LEFT = 0
+            ABE_TOP = 1
+            ABE_RIGHT = 2
+            ABE_BOTTOM = 3
+        End Enum
 
         Enum ABMsg
             ABM_NEW = 0
@@ -77,16 +86,23 @@ Namespace Shell4Core
 
         Enum ABNotify
             ABN_STATECHANGE = 0
-            ABN_POSCHANGED
-            ABN_FULLSCREENAPP
-            ABN_WINDOWARRANGE
+            ABN_POSCHANGED = 1
+            ABN_FULLSCREENAPP = 2
+            ABN_WINDOWARRANGE = 3
         End Enum
 
-        Enum ABEdge
-            ABE_LEFT = 0
-            ABE_TOP
-            ABE_RIGHT
-            ABE_BOTTOM
+        'http://www.pinvoke.net/default.aspx/Enums/WindowLongFlags.html
+        Enum GWL As Integer
+            GWL_EXSTYLE = -20
+            GWLP_HINSTANCE = -6
+            GWLP_HWNDPARENT = -8
+            GWL_ID = -12
+            GWL_STYLE = -16
+            GWL_USERDATA = -21
+            GWL_WNDPROC = -4
+            DWLP_USER = &H8
+            DWLP_MSGRESULT = &H0
+            DWLP_DLGPROC = &H4
         End Enum
 
         Enum WindowStates
@@ -104,37 +120,21 @@ Namespace Shell4Core
             SHOWDEFAULT = 10
             FORCEMINIMIZE = 11
         End Enum
-
-        'http://www.pinvoke.net/default.aspx/Enums/WindowLongFlags.html
-        Enum GWL As Integer
-            GWL_EXSTYLE = -20
-            GWLP_HINSTANCE = -6
-            GWLP_HWNDPARENT = -8
-            GWL_ID = -12
-            GWL_STYLE = -16
-            GWL_USERDATA = -21
-            GWL_WNDPROC = -4
-            DWLP_USER = &H8
-            DWLP_MSGRESULT = &H0
-            DWLP_DLGPROC = &H4
-        End Enum
 #End Region
 
 #Region "AppBarAPIs"
-        '''TODO: Convert all declares to DLLImport, it's more readable for non-VB programmers.
-        <DllImport("User32.dll", EntryPoint:="GetWindowLong")> _
-        Private Shared Function GetWindowLongPtr32(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As IntPtr
-        End Function
-        <DllImport("User32.dll", EntryPoint:="GetWindowLongPtr")> _
-        Private Shared Function GetWindowLongPtr64(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As IntPtr
-        End Function
-
         Private Declare Auto Function RegisterWindowMessage Lib "User32.dll" (ByVal msg As String) As Integer
         'https://msdn.microsoft.com/de-de/library/windows/desktop/bb762108%28v=vs.85%29.aspx
         Public Declare Function SHAppBarMessage Lib "Shell32.dll" Alias "SHAppBarMessage" (ByVal dwMessage As Integer, ByRef pData As APPBARDATA) As System.UInt32
         Public Declare Function MoveWindow Lib "User32.dll" Alias "MoveWindow" (ByVal hWnd As IntPtr, ByVal x As Integer, ByVal y As Integer, ByVal cx As Integer, ByVal cy As Integer, ByVal repaint As Boolean) As Boolean
         Public Declare Function ShowWindowAsync Lib "User32.dll" Alias "ShowWindowAsync" (ByVal hWnd As IntPtr, ByVal nCmdShow As Integer) As Boolean
 
+        <DllImport("User32.dll", EntryPoint:="GetWindowLong")> _
+        Private Shared Function GetWindowLongPtr32(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As IntPtr
+        End Function
+        <DllImport("User32.dll", EntryPoint:="GetWindowLongPtr")> _
+        Private Shared Function GetWindowLongPtr64(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As IntPtr
+        End Function
 #End Region
 
         'http://www.pinvoke.net/default.aspx/user32/GetWindowLongPtr.html
@@ -147,19 +147,18 @@ Namespace Shell4Core
         End Function
 
         Public Sub RegisterBar()
-            Dim abd As New APPBARDATA()
-            abd.cbSize = Marshal.SizeOf(abd)
-            abd.hWnd = Me.Handle
+            ABD.cbSize = Marshal.SizeOf(ABD)
+            ABD.hWnd = Me.Handle
 
             If Not BarIsDocked Then
                 uCallBack = RegisterWindowMessage("AppBarMessage")
-                abd.uCallbackMessage = uCallBack
+                ABD.uCallbackMessage = uCallBack
 
-                Dim ret As System.UInt32 = SHAppBarMessage(CInt(ABMsg.ABM_NEW), abd) 'Minding the unsigned Integer
+                Dim ret As System.UInt32 = SHAppBarMessage(CInt(ABMsg.ABM_NEW), ABD) 'Minding the unsigned Integer
                 BarIsDocked = True 'Are you sure?
                 ABSetPos()
             Else
-                SHAppBarMessage(CInt(ABMsg.ABM_REMOVE), abd)
+                SHAppBarMessage(CInt(ABMsg.ABM_REMOVE), ABD)
                 BarIsDocked = False
             End If
         End Sub
@@ -168,48 +167,43 @@ Namespace Shell4Core
         'http://stackoverflow.com/questions/14698755/appbar-multi-monitor
         Private Sub ABSetPos()
             Dim scrReference As Rectangle
-            Dim abd As New APPBARDATA()
-            abd.cbSize = Marshal.SizeOf(abd)
-            abd.hWnd = Me.Handle
-            abd.uEdge = CInt(ABE)
-
             'TODO: Let the user select the preferred screen
             Dim scr As Screen = Screen.AllScreens(Me.ScreenToDock)
             scrReference = scr.Bounds
 
-            If abd.uEdge = CInt(ABEdge.ABE_LEFT) Or abd.uEdge = CInt(ABEdge.ABE_RIGHT) Then
+            If ABD.uEdge = CInt(ABEdge.ABE_LEFT) Or ABD.uEdge = CInt(ABEdge.ABE_RIGHT) Then
                 Throw New ArgumentOutOfRangeException("Docking to the left and right Edges is currently not supported.")
 
             Else
-                abd.rc.left = scrReference.Left
-                abd.rc.right = scrReference.Right
-                If abd.uEdge = CInt(ABEdge.ABE_TOP) Then
-                    abd.rc.top = scrReference.Top
-                    abd.rc.bottom = Size.Height
+                ABD.rc.left = scrReference.Left
+                ABD.rc.right = scrReference.Right
+                If ABD.uEdge = CInt(ABEdge.ABE_TOP) Then
+                    ABD.rc.top = scrReference.Top
+                    ABD.rc.bottom = Size.Height
                 Else
-                    abd.rc.bottom = scrReference.Bottom
-                    abd.rc.top = abd.rc.bottom - Size.Height
+                    ABD.rc.bottom = scrReference.Bottom
+                    ABD.rc.top = ABD.rc.bottom - Size.Height
                 End If
             End If
 
             ' Query the system for an approved size and position. 
-            SHAppBarMessage(CInt(ABMsg.ABM_QUERYPOS), abd)
+            SHAppBarMessage(CInt(ABMsg.ABM_QUERYPOS), ABD)
             ' Adjust the rectangle, depending on the edge to which the appbar is (going to be) anchored.
-            Select Case abd.uEdge
+            Select Case ABD.uEdge
                 Case CInt(ABEdge.ABE_LEFT)
-                    abd.rc.right = abd.rc.left + Size.Width
+                    ABD.rc.right = ABD.rc.left + Size.Width
                 Case CInt(ABEdge.ABE_RIGHT)
-                    abd.rc.left = abd.rc.right - Size.Width
+                    ABD.rc.left = ABD.rc.right - Size.Width
                 Case CInt(ABEdge.ABE_TOP)
-                    abd.rc.bottom = abd.rc.top + Size.Height
+                    ABD.rc.bottom = ABD.rc.top + Size.Height
                 Case CInt(ABEdge.ABE_BOTTOM)
-                    abd.rc.top = abd.rc.bottom - Size.Height
+                    ABD.rc.top = ABD.rc.bottom - Size.Height
             End Select
 
             'Pass the final bounding rectangle to the system
-            SHAppBarMessage(CInt(ABMsg.ABM_SETPOS), abd)
+            SHAppBarMessage(CInt(ABMsg.ABM_SETPOS), ABD)
             'Now, let's move and resize to it
-            MoveWindow(abd.hWnd, abd.rc.left, abd.rc.top, abd.rc.right - abd.rc.left, abd.rc.bottom - abd.rc.top, True)
+            MoveWindow(ABD.hWnd, ABD.rc.left, ABD.rc.top, ABD.rc.right - ABD.rc.left, ABD.rc.bottom - ABD.rc.top, True)
         End Sub
 
         Protected Overrides Sub WndProc(ByRef m As System.Windows.Forms.Message)
