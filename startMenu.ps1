@@ -54,7 +54,7 @@ Function startMenu([System.Windows.Forms.Form]$appBar)
 		{
 			#3
 			$menuForm.left = $appBar.left
-			$menuForm.bottom = $appBar.Top
+			$menuForm.top = ($appBar.Top - $menuForm.Height)
 		}
 		default {Write-Host "This should never ever happen."}
 	}
