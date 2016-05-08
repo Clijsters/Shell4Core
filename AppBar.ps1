@@ -40,6 +40,7 @@ Function RefreshOpenWindows($ArrRef){
 	
 	if ((diff $ArrRef $ArrBtns) -Or (diff $oldMap $newMap)){
 		Write-Host "Something has changed. Let's refresh our OpenWindows-List"
+		#TODO: First Order by ProcessName, then hWnd
 		ForEach($btn in ($ArrBtns | Sort-Object -Property PtrhWnd)) {
 			$btn.ArrangeMe([ref]$intLeft)
 		}

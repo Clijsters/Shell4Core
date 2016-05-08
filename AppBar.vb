@@ -45,14 +45,16 @@ Namespace Shell4Core
         End Sub
 
         Public Sub RegisterBar()
-            If Not BarIsDocked Then
+            If Not BarIsDocked Then 'Dock it
                 uCallBack = RegisterWindowMessage("AppBarMessage")
                 ABD.uCallbackMessage = uCallBack
-
-                Dim ret As System.UInt32 = SHAppBarMessage(CInt(ABMsg.ABM_NEW), ABD) 'Minding the unsigned Integer
-                BarIsDocked = True 'Are you sure?
-                ABSetPos()
-            Else
+                If SHAppBarMessage(CInt(ABMsg.ABM_NEW), ABD) Then
+					ABSetPos()
+					BarIsDocked = True
+                Else
+					
+                End If
+			Else 'Undock it
                 SHAppBarMessage(CInt(ABMsg.ABM_REMOVE), ABD)
                 BarIsDocked = False
             End If
@@ -110,7 +112,7 @@ Namespace Shell4Core
             End If
             MyBase.WndProc(m)
         End Sub
-
+#Region "Win32-API"
 
         <DllImport("User32.dll", EntryPoint:="IsWindowVisible")>
         Public Shared Function IsWindowVisible(ByVal hwnd As IntPtr) As Boolean
@@ -122,12 +124,6 @@ Namespace Shell4Core
         Public Shared Function EnumWindows(ByVal Adress As EnumWindowProc, ByVal y As Integer) As Integer
         End Function
         Public Delegate Function EnumWindowProc(ByVal Handle As IntPtr, ByVal Parameter As IntPtr) As Boolean
-
-
-
-
-
-#Region "AppBarAPIs"
         'http://www.pinvoke.net/default.aspx/user32/GetWindowLongPtr.html
         Public Shared Function GetWindowLongPtr(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As IntPtr
             If IntPtr.Size = 8 Then
@@ -136,13 +132,11 @@ Namespace Shell4Core
                 Return GetWindowLongPtr32(hWnd, nIndex)
             End If
         End Function
-
         Private Declare Auto Function RegisterWindowMessage Lib "User32.dll" (ByVal msg As String) As Integer
         'https://msdn.microsoft.com/de-de/library/windows/desktop/bb762108%28v=vs.85%29.aspx
         Public Declare Function SHAppBarMessage Lib "Shell32.dll" Alias "SHAppBarMessage" (ByVal dwMessage As Integer, ByRef pData As APPBARDATA) As System.UInt32
         Public Declare Function MoveWindow Lib "User32.dll" Alias "MoveWindow" (ByVal hWnd As IntPtr, ByVal x As Integer, ByVal y As Integer, ByVal cx As Integer, ByVal cy As Integer, ByVal repaint As Boolean) As Boolean
         Public Declare Function ShowWindowAsync Lib "User32.dll" Alias "ShowWindowAsync" (ByVal hWnd As IntPtr, ByVal nCmdShow As Integer) As Boolean
-
         <DllImport("User32.dll", EntryPoint:="GetWindowLong")> _
         Private Shared Function GetWindowLongPtr32(ByVal hWnd As IntPtr, ByVal nIndex As Integer) As IntPtr
         End Function
