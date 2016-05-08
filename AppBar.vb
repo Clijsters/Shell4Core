@@ -49,9 +49,11 @@ Namespace Shell4Core
                 uCallBack = RegisterWindowMessage("AppBarMessage")
                 ABD.uCallbackMessage = uCallBack
                 If SHAppBarMessage(CInt(ABMsg.ABM_NEW), ABD) Then
+                    'Console.WriteLine("Docking")
 					ABSetPos()
 					BarIsDocked = True
                 Else
+                    Console.WriteLine("Docking not possible. Should exit.")
 					
                 End If
 			Else 'Undock it
@@ -112,8 +114,8 @@ Namespace Shell4Core
             End If
             MyBase.WndProc(m)
         End Sub
-#Region "Win32-API"
 
+#Region "Win32-API"
         <DllImport("User32.dll", EntryPoint:="IsWindowVisible")>
         Public Shared Function IsWindowVisible(ByVal hwnd As IntPtr) As Boolean
         End Function
